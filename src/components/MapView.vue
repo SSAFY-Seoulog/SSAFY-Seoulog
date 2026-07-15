@@ -94,11 +94,23 @@ function loadKakaoScript() {
 
     const script = document.createElement('script')
     script.setAttribute('data-kakao', 'true')
-    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoKey}&libraries=services&autoload=false`
+    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoKey}&libraries=services,clusterer,visualization&autoload=false`
     script.onload = resolve
     script.onerror = reject
     document.head.appendChild(script)
   })
+}
+
+function getDistrictFromAddr(addr = '') {
+  // 알려진 패턴에서 '○○구' 또는 '○○시' 이름을 추출
+  const m = addr.match(/([가-힣]+(구|시))/)
+  return m ? m[1] : '알수없음'
+}
+
+async function fetchData(url) {
+  const res = await fetch(url)
+  if (!res.ok) return { items: [] }
+  return res.json()
 }
 
 function createMap() {
@@ -111,22 +123,106 @@ function createMap() {
   const options = { center: new kakao.maps.LatLng(37.5665, 126.9780), level: 7 }
   const map = new kakao.maps.Map(container, options)
 
-  const dataPoints = [
-    { title: '중구', coords: new kakao.maps.LatLng(37.5638, 126.9975), label: '320K명' },
-    { title: '강남구', coords: new kakao.maps.LatLng(37.5172, 127.0473), label: '285K명' },
-    { title: '종로구', coords: new kakao.maps.LatLng(37.5729, 126.9794), label: '210K명' },
-    { title: '마포구', coords: new kakao.maps.LatLng(37.5663, 126.9019), label: '180K명' }
-  ]
+  // 레전드 추가
+  const legend = document.createElement('div')
+  legend.className = 'map-legend panel'
+  legend.innerHTML = `
+    <strong>범례</strong>
+    <div class="legend-row"><span class="dot very-high"></span>매우 높음</div>
+    <div class="legend-row"><span class="dot high"></span>높음</div>
+    <div class="legend-row"><span class="dot rise"></span>상승세 (전주대비)</div>
+  `
+  legend.style.position = 'absolute'
+  legend.style.left = '16px'
+  legend.style.bottom = '16px'
+  legend.style.zIndex = 2000
+  container.appendChild(legend)
 
-  dataPoints.forEach(point => {
-    const marker = new kakao.maps.Marker({ position: point.coords, map })
-    const infowindow = new kakao.maps.InfoWindow({
-      content: `<div style="padding:10px 14px;border-radius:12px;background:rgba(15,23,42,0.85);color:white;font-size:13px;line-height:1.4;">${point.title}<br>${point.label}</div>`
+  // 데이터 로드 및 집계
+  Promise.all([
+    fetchData('/data/seoul_attractions.json'),
+    fetchData('/data/seoul_festivals.json')
+  ]).then(([attractions, festivals]) => {
+    const allItems = [...(attractions.items || []), ...(festivals.items || [])]
+
+    const groups = {}
+    allItems.forEach(it => {
+      const lat = parseFloat(it.mapy)
+      const lng = parseFloat(it.mapx)
+      if (!lat || !lng) return
+      const district = getDistrictFromAddr(it.addr1 || it.title || '')
+      if (!groups[district]) groups[district] = { count: 0, latSum: 0, lngSum: 0, items: [] }
+      groups[district].count += 1
+      groups[district].latSum += lat
+      groups[district].lngSum += lng
+      groups[district].items.push(it)
     })
 
-    kakao.maps.event.addListener(marker, 'mouseover', () => infowindow.open(map, marker))
-    kakao.maps.event.addListener(marker, 'mouseout', () => infowindow.close())
-  })
+    const groupList = Object.keys(groups).map(k => {
+      const g = groups[k]
+      return {
+        name: k,
+        count: g.count,
+        center: new kakao.maps.LatLng(g.latSum / g.count, g.lngSum / g.count),
+        items: g.items
+      }
+    })
+
+    // 정렬 및 가중치 계산
+    groupList.sort((a, b) => b.count - a.count)
+    const max = groupList.length ? groupList[0].count : 1
+
+    // 오버레이(원형)과 마커 생성
+    groupList.forEach((g, idx) => {
+      const weight = g.count / max
+      const radius = 800 + weight * 8000 // 가시화용 반경
+
+      const circle = new kakao.maps.Circle({
+        center: g.center,
+        radius,
+        strokeWeight: 0,
+        fillColor: weight > 0.66 ? 'rgba(10,118,178,0.28)' : weight > 0.33 ? 'rgba(79,187,196,0.18)' : 'rgba(158,231,255,0.12)',
+        fillOpacity: 1,
+        map
+      })
+
+      const marker = new kakao.maps.Marker({ position: g.center, map })
+      const overlayContent = `
+        <div class="district-overlay">
+          <strong>${g.name}</strong>
+          <div class="count">${g.count}개</div>
+        </div>
+      `
+      const customOverlay = new kakao.maps.CustomOverlay({
+        position: g.center,
+        content: overlayContent,
+        yAnchor: 1.4,
+        map
+      })
+
+      const infowindow = new kakao.maps.InfoWindow({
+        removable: true,
+        content: renderInfoContent(g)
+      })
+
+      kakao.maps.event.addListener(marker, 'click', () => {
+        infowindow.setContent(renderInfoContent(g))
+        infowindow.open(map, marker)
+      })
+    })
+  }).catch(err => console.error('데이터 로드 실패', err))
+}
+
+function renderInfoContent(group) {
+  const list = group.items.slice(0, 6).map(i => `<li><strong>${i.title}</strong><div class="mini">${i.addr1 || ''}</div></li>`).join('')
+  return `
+    <div style="padding:12px 16px;min-width:220px;">
+      <h4 style="margin:0 0 8px;">${group.name} — ${group.count}건</h4>
+      <ul style="padding:0;margin:0;list-style:none;max-height:200px;overflow:auto;">
+        ${list}
+      </ul>
+    </div>
+  `
 }
 
 onMounted(async () => {
@@ -143,3 +239,19 @@ onMounted(async () => {
   }
 })
 </script>
+
+<style scoped>
+.map-legend { padding:12px 14px; border-radius:12px; background:#fff; box-shadow:0 10px 24px rgba(15,23,42,0.06); font-size:13px; color:#475569; }
+.map-legend strong { display:block; margin-bottom:8px; color:#0f1724 }
+.map-legend .legend-row { display:flex; align-items:center; gap:8px; margin-top:6px }
+.map-legend .dot { width:12px; height:12px; border-radius:50%; display:inline-block }
+.dot.very-high { background:#0b74b2 }
+.dot.high { background:#55b5ff }
+.dot.rise { background:#0aa27a }
+
+.district-overlay { background:rgba(255,255,255,0.95); padding:8px 10px; border-radius:10px; box-shadow:0 8px 20px rgba(15,23,42,0.08); border:1px solid rgba(15,23,42,0.06); }
+.district-overlay strong { display:block; font-size:13px; color:#0f1724 }
+.district-overlay .count { font-size:12px; color:#6b7280 }
+
+#map { min-height:560px; border-radius:10px; overflow:hidden }
+</style>

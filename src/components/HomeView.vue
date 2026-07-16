@@ -81,7 +81,7 @@
     <section class="ai-section">
       <div class="container ai-band">
         <div class="ai-visual" aria-hidden="true">
-          <span class="ai-orbit">✨</span><div class="ai-core">L</div><span class="ai-bubble">이번 주말<br><strong>서울 어디 갈까?</strong></span>
+          <span class="ai-orbit">✨</span><div class="ai-core">S</div><span class="ai-bubble">이번 주말<br><strong>서울 어디 갈까?</strong></span>
         </div>
         <div class="ai-copy">
           <p class="eyebrow">LOCALHUB AI</p>

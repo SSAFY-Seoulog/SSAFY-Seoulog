@@ -1,12 +1,12 @@
 <template>
   <div class="chat-widget">
     <button v-if="!isOpen" class="fab" aria-label="LocalHub 이용 도우미 열기" title="LocalHub 이용 도우미" @click="isOpen = true">
-      <span class="fab-spark">✦</span><strong>L</strong><span class="fab-badge">AI</span>
+      <span class="fab-spark">✦</span><strong>S</strong><span class="fab-badge">AI</span>
     </button>
 
     <div v-else class="chat-panel" role="dialog" aria-label="LocalHub 이용 도우미">
       <header class="panel-header">
-        <div class="panel-brand"><span class="panel-logo">L</span><span><strong>LocalHub 이용 도우미</strong><small><i></i> 사이트 사용법을 물어보세요</small></span></div>
+        <div class="panel-brand"><span class="panel-logo">S</span><span><strong>LocalHub 이용 도우미</strong><small><i></i> 사이트 사용법을 물어보세요</small></span></div>
         <div class="panel-actions">
           <button class="icon-btn" title="대화 초기화" aria-label="대화 초기화" @click="onClear">↻</button>
           <button class="icon-btn" title="닫기" aria-label="닫기" @click="isOpen = false">×</button>

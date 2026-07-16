@@ -15,11 +15,11 @@
 
       <div ref="bodyEl" class="chat-body">
         <div v-for="(msg, i) in messages" :key="i" class="message-row" :class="msg.role">
-          <span v-if="msg.role === 'assistant'" class="message-avatar">L</span>
+          <span v-if="msg.role === 'assistant'" class="message-avatar">S</span>
           <div class="message" :class="msg.role">{{ msg.content }}</div>
         </div>
         <div v-if="isLoading" class="message-row assistant">
-          <span class="message-avatar">L</span>
+          <span class="message-avatar">S</span>
           <div class="message assistant typing" aria-label="답변 작성 중">
             <span class="dot"></span><span class="dot"></span><span class="dot"></span>
           </div>

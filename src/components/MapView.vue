@@ -1,9 +1,9 @@
-﻿<template>
+<template>
   <main class="map-page" :class="{ embedded }">
     <section class="map-section">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">LocalHub</p>
+          <p class="eyebrow">Seoulog</p>
           <h1>서울 관광 지도</h1>
         </div>
       </div>

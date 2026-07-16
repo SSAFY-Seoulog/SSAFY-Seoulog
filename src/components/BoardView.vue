@@ -66,6 +66,33 @@
           </tbody>
         </table>
       </div>
+
+      <div v-if="totalPages > 1" class="pagination-container">
+        <button 
+          @click="changePage(currentPage - 1)" 
+          :disabled="currentPage === 1" 
+          class="page-btn arrow"
+        >
+          &lt;
+        </button>
+
+        <button 
+          v-for="page in totalPages" 
+          :key="page" 
+          @click="changePage(page)" 
+          :class="['page-btn', { active: currentPage === page }]"
+        >
+          {{ page }}
+        </button>
+
+        <button 
+          @click="changePage(currentPage + 1)" 
+          :disabled="currentPage === totalPages" 
+          class="page-btn arrow"
+        >
+          &gt;
+        </button>
+      </div>
     </section>
 
     <div v-if="authModal.show" class="modal-backdrop" @click.self="closeAuthModal">
@@ -188,6 +215,36 @@ const filteredPosts = computed(() => {
   if (selectedCategory.value === '전체') return posts.value
   return posts.value.filter(post => post.category === selectedCategory.value)
 })
+
+// ==========================================
+// 💡 페이지네이션 관련 상태 변수
+// ==========================================
+const currentPage = ref(1)      // 현재 페이지 번호
+const postsPerPage = 10         // 한 페이지에 보여줄 게시글 수
+
+// 1. 카테고리가 바뀌면 페이지 번호를 1로 초기화해 줍니다.
+watch(selectedCategory, () => {
+  currentPage.value = 1
+})
+
+// 2. 전체 페이지 수 계산 (예: 23개 글이 있으면 총 3페이지가 나옴)
+const totalPages = computed(() => {
+  return Math.ceil(filteredPosts.value.length / postsPerPage) || 1
+})
+
+// 3. 현재 페이지에 해당하는 '10개의 게시글'만 쏙 잘라내서 테이블에 뿌려주는 computed
+const paginatedPosts = computed(() => {
+  const startIndex = (currentPage.value - 1) * postsPerPage
+  const endIndex = startIndex + postsPerPage
+  return filteredPosts.value.slice(startIndex, endIndex)
+})
+
+// 4. 페이지 이동 처리 함수
+const changePage = (page) => {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page
+  }
+}
 
 const resetForm = () => {
   form.value = {
